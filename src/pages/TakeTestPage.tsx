@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getTests } from "@/lib/store";
-import type { Test, TestResult } from "@/lib/store";
+import { getTests, saveTestResult } from "@/lib/store";
+import type { Test } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 
 const TakeTestPage = () => {
   const navigate = useNavigate();
@@ -48,7 +48,7 @@ const TakeTestPage = () => {
 
   const handleSubmitRef = useRef(() => {});
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!test || submittedRef.current) return;
     submittedRef.current = true;
     setSubmitted(true);
@@ -60,14 +60,28 @@ const TakeTestPage = () => {
       if (currentAnswers[i] === q.correctIndex) correct++;
     });
 
-    const result: TestResult = {
+    const score = Math.round((correct / test.questions.length) * 100);
+
+    try {
+      await saveTestResult({
+        testId: test.id,
+        studentName: studentName || "Unknown",
+        totalQuestions: test.questions.length,
+        correctAnswers: correct,
+        score: score
+      });
+    } catch (err) {
+      console.error("Failed to save result", err);
+    }
+
+    const resultForDisplay = {
       studentName: studentName || "Unknown",
       testTitle: test.title,
       totalQuestions: test.questions.length,
       correctAnswers: correct,
-      score: Math.round((correct / test.questions.length) * 100),
+      score: score,
     };
-    sessionStorage.setItem("lastResult", JSON.stringify(result));
+    sessionStorage.setItem("lastResult", JSON.stringify(resultForDisplay));
     navigate("/result");
   };
 

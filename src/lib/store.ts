@@ -56,11 +56,66 @@ export interface Test {
 }
 
 export interface TestResult {
+  id: string;
   studentName: string;
-  testTitle: string;
+  testId: string;
+  subjectId?: string;
+  testTitle?: string;
   totalQuestions: number;
   correctAnswers: number;
-  score: number;
+  score: number; // Percentage (DB 'score')
+  date: string;
+}
+
+export async function getTestResults(): Promise<TestResult[]> {
+  const { data, error } = await supabase
+    .from("test_results")
+    .select(`
+      *,
+      tests (
+        id,
+        title,
+        subject_id,
+        subjects (
+          id,
+          name
+        )
+      )
+    `)
+    .order("completed_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching results:", error);
+    return [];
+  }
+
+  return data.map((r: any) => ({
+    id: r.id,
+    studentName: r.student_name,
+    testId: r.test_id,
+    subjectId: r.tests?.subject_id,
+    testTitle: r.tests?.title,
+    totalQuestions: r.total_questions,
+    correctAnswers: r.correct_answers || 0,
+    score: r.score, 
+    date: r.completed_at,
+  }));
+}
+
+export async function saveTestResult(result: Omit<TestResult, "id" | "date" | "testTitle" | "subjectId">) {
+  const { error } = await supabase.from("test_results").insert({
+    test_id: result.testId,
+    student_name: result.studentName,
+    score: result.score,
+    total_questions: result.totalQuestions,
+    correct_answers: result.correctAnswers,
+    // completed_at handled by DB default
+  });
+
+  if (error) {
+    console.error("Error saving result:", error);
+    throw error;
+  }
 }
 
 // Subjects

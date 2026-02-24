@@ -3,19 +3,29 @@ import { useNavigate } from "react-router-dom";
 import {
   getSubjects, addSubject, updateSubject, deleteSubject,
   getTests, addTest, updateTest, deleteTest,
+  getTestResults, saveTestResult, // New export
   generateId,
 } from "@/lib/store";
-import type { Subject, Test, Question } from "@/lib/store";
+import type { Subject, Test, Question, TestResult } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Plus, Trash2, Pencil, BookOpen, FileText, HelpCircle,
   LayoutDashboard, Save, X, ChevronDown, ChevronUp,
   Code, Calculator, Atom, Languages, Palette, Music, History, TrendingUp, Landmark, Globe,
+  Users, // Icon for students/results
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"; // Assuming shadcn Table component exists (if not I'll just use divs)
 
 const iconOptions = [
   "code",
@@ -47,7 +57,8 @@ const AdminPage = () => {
   const navigate = useNavigate();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [tests, setTests] = useState<Test[]>([]);
-  const [tab, setTab] = useState<"subjects" | "tests">("subjects");
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [tab, setTab] = useState<"subjects" | "tests" | "results">("subjects");
 
   // Subject form
   const [showSubjectForm, setShowSubjectForm] = useState(false);
@@ -68,6 +79,7 @@ const AdminPage = () => {
   const refresh = async () => {
     setSubjects(await getSubjects());
     setTests(await getTests());
+    setResults(await getTestResults());
   };
 
   useEffect(() => {
@@ -176,6 +188,7 @@ const AdminPage = () => {
   };
 
   const totalQuestions = tests.reduce((acc, t) => acc + t.questions.length, 0);
+  const uniqueStudents = new Set(results.map((r) => r.studentName)).size;
 
   return (
     <div className="min-h-screen bg-background">
@@ -196,13 +209,14 @@ const AdminPage = () => {
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
             { label: "Subjects", value: subjects.length, icon: BookOpen },
             { label: "Tests", value: tests.length, icon: FileText },
             { label: "Questions", value: totalQuestions, icon: HelpCircle },
+            { label: "Students", value: uniqueStudents, icon: Users },
           ].map((stat) => (
-            <div key={stat.label} className="bg-card rounded-2xl shadow-card p-5 text-center">
+            <div key={stat.label} className="bg-card rounded-2xl shadow-card p-5 text-center transition-all hover:scale-105">
               <stat.icon className="h-6 w-6 text-primary mx-auto mb-2" />
               <p className="text-3xl font-display font-bold text-foreground">{stat.value}</p>
               <p className="text-sm text-muted-foreground">{stat.label}</p>
@@ -211,16 +225,16 @@ const AdminPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          {(["subjects", "tests"] as const).map((t) => (
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {(["subjects", "tests", "results"] as const).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setShowSubjectForm(false); setShowTestForm(false); }}
-              className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all ${
+              className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
                 tab === t ? "gradient-primary text-primary-foreground shadow-card" : "bg-secondary text-secondary-foreground hover:bg-muted"
               }`}
             >
-              {t === "subjects" ? "Subjects" : "Tests & Questions"}
+              {t === "subjects" ? "Subjects" : t === "tests" ? "Tests & Questions" : "Results"}
             </button>
           ))}
         </div>
@@ -424,6 +438,61 @@ const AdminPage = () => {
                 })}
               </div>
             )}
+          </div>
+        )}
+        {/* RESULTS TAB */}
+        {tab === "results" && (
+          <div className="animate-fade-in space-y-4">
+             {results.length === 0 ? (
+               <div className="text-center py-10 text-muted-foreground">
+                 No results found yet.
+               </div>
+             ) : (
+                <div className="bg-card rounded-2xl shadow-card p-6 overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs uppercase bg-muted/50 text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Student</th>
+                        <th className="px-4 py-3 text-left">Subject</th>
+                        <th className="px-4 py-3 text-left">Test</th>
+                        <th className="px-4 py-3 text-left">Score</th>
+                        <th className="px-4 py-3 text-left">Percent</th>
+                        <th className="px-4 py-3 rounded-r-lg text-left">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results.map((res) => {
+                         const subj = subjects.find(s => s.id === res.subjectId);
+                         const test = tests.find(t => t.id === res.testId);
+                         const dateObj = new Date(res.date);
+                         const isDateValid = !isNaN(dateObj.getTime());
+                         const dateStr = isDateValid 
+                            ? dateObj.toLocaleDateString() + " " + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : "Invalid Date";
+                            
+                         return (
+                           <tr key={res.id} className="border-b border-border/50 hover:bg-muted/50 last:border-0 transition-colors">
+                              <td className="px-4 py-3 font-medium text-foreground">{res.studentName}</td>
+                              <td className="px-4 py-3 text-muted-foreground">{subj?.name || "Unknown"}</td>
+                              <td className="px-4 py-3 text-muted-foreground">{test?.title || "Unknown"}</td>
+                              <td className="px-4 py-3 font-semibold text-foreground">{res.correctAnswers} / {res.totalQuestions}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 rounded-md text-xs font-bold ${
+                                  res.score >= 70 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                                  res.score >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                }`}>
+                                  {res.score.toFixed(0)}%
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground text-xs">{dateStr}</td>
+                           </tr>
+                         );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+             )}
           </div>
         )}
       </div>

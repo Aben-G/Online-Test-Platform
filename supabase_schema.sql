@@ -1,43 +1,44 @@
+
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
 -- Table: subjects
 create table public.subjects (
-  id uuid default uuid_generate_v4() primary key,
-  name text not null,
+  id uuid DEFAULT uuid_generate_v4() NOT NULL PRIMARY KEY,
+  name text NOT NULL,
   description text,
-  icon text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  icon text NOT NULL,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Table: tests
 create table public.tests (
-  id uuid default uuid_generate_v4() primary key,
-  subject_id uuid references public.subjects(id) on delete cascade not null,
-  title text not null,
-  duration integer not null default 10, -- Duration in minutes
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  id uuid DEFAULT uuid_generate_v4() NOT NULL PRIMARY KEY,
+  subject_id uuid NOT NULL REFERENCES public.subjects(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  duration integer DEFAULT 10 NOT NULL,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Table: questions
 create table public.questions (
-  id uuid default uuid_generate_v4() primary key,
-  test_id uuid references public.tests(id) on delete cascade not null,
-  text text not null,
-  options jsonb not null default '[]'::jsonb, -- Store options as ["A", "B", "C", "D"]
-  correct_index integer not null CHECK (correct_index >= 0 AND correct_index <= 3),
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  id uuid DEFAULT uuid_generate_v4() NOT NULL PRIMARY KEY,
+  test_id uuid NOT NULL REFERENCES public.tests(id) ON DELETE CASCADE,
+  text text NOT NULL,
+  options jsonb DEFAULT '[]'::jsonb NOT NULL,
+  correct_index integer NOT NULL CHECK (correct_index >= 0 AND correct_index <= 3),
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Table: test_results (Optional, for tracking history)
+-- Table: test_results
 create table public.test_results (
-  id uuid default uuid_generate_v4() primary key,
-  student_name text not null,
-  test_id uuid references public.tests(id) on delete set null,
-  score integer not null,
-  total_questions integer not null,
-  correct_answers integer not null,
-  completed_at timestamp with time zone default timezone('utc'::text, now()) not null
+  id uuid DEFAULT uuid_generate_v4() NOT NULL PRIMARY KEY,
+  student_name text NOT NULL,
+  test_id uuid REFERENCES public.tests(id) ON DELETE SET NULL,
+  score integer NOT NULL, -- Percentage
+  total_questions integer NOT NULL,
+  correct_answers integer NOT NULL,
+  completed_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Allow public read access (for students taking tests)
@@ -46,8 +47,31 @@ alter table public.tests enable row level security;
 alter table public.questions enable row level security;
 alter table public.test_results enable row level security;
 
--- Policies for public data (Read-only for anon, full access is restricted but for this demo let's allow all for simplicity or define strict rules)
--- Ideally, you'd secure this, but for a simple "no-login" app, we'll allow anon read. Writing usually requires admin.
+
+-- Policies for public access (Simplified for this project)
+
+-- Allow anyone to read subjects, tests, and questions
+create policy "Allow public read access for subjects" on public.subjects for select using (true);
+create policy "Allow public read access for tests" on public.tests for select using (true);
+create policy "Allow public read access for questions" on public.questions for select using (true);
+
+-- Allow anyone to create test results (students submitting tests)
+create policy "Allow public insert access for test results" on public.test_results for insert with check (true);
+-- Allow reading test results (for admin dashboard - in real app, restrict this)
+create policy "Allow public read access for test results" on public.test_results for select using (true);
+
+-- Allow admin operations (In a real app, use auth only. Here we allow public insert/update/delete for the admin panel to work without auth for now)
+create policy "Allow public insert for subjects" on public.subjects for insert with check (true);
+create policy "Allow public update for subjects" on public.subjects for update using (true);
+create policy "Allow public delete for subjects" on public.subjects for delete using (true);
+
+create policy "Allow public insert for tests" on public.tests for insert with check (true);
+create policy "Allow public update for tests" on public.tests for update using (true);
+create policy "Allow public delete for tests" on public.tests for delete using (true);
+
+create policy "Allow public insert for questions" on public.questions for insert with check (true);
+create policy "Allow public update for questions" on public.questions for update using (true);
+create policy "Allow public delete for questions" on public.questions for delete using (true);
 -- For this simple implementation, let's open it up to anon users to insert results, and admins to manage content.
 -- However, since there is no auth implemented in the app yet, we might need to rely on the service key or allow anon writes for now if we want to store results.
 -- Let's create simple policies for anon access:
