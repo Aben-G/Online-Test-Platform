@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getTests, saveTestResult } from "@/lib/store";
 import type { Test } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Clock, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, AlertCircle, Eye, EyeOff, CheckCircle } from "lucide-react";
 
 const TakeTestPage = () => {
   const navigate = useNavigate();
@@ -12,6 +12,19 @@ const TakeTestPage = () => {
   
   const [test, setTest] = useState<Test | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+
+  // States
+  const [currentQ, setCurrentQ] = useState(0);
+  const [answers, setAnswers] = useState<(number | null)[]>([]);
+  const [timeLeft, setTimeLeft] = useState(-1);
+  const [submitted, setSubmitted] = useState(false);
+  
+  // New States
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewPage, setReviewPage] = useState(0);
+  const [showTimer, setShowTimer] = useState(true);
+  
+  const submittedRef = useRef(false);
 
   useEffect(() => {
     async function fetchTest() {
@@ -24,12 +37,6 @@ const TakeTestPage = () => {
     fetchTest();
   }, [testId]);
 
-  const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState<(number | null)[]>([]);
-  const [timeLeft, setTimeLeft] = useState(-1);
-  const [submitted, setSubmitted] = useState(false);
-  const submittedRef = useRef(false);
-
   useEffect(() => {
     if (test) {
       setAnswers(new Array(test.questions.length).fill(null));
@@ -38,17 +45,17 @@ const TakeTestPage = () => {
       setCurrentQ(0);
       setSubmitted(false);
       submittedRef.current = false;
+      setIsReviewing(false);
+      setReviewPage(0);
     }
   }, [test]);
 
-
-  
   const answersRef = useRef<(number | null)[]>([]);
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
   const handleSubmitRef = useRef(() => {});
 
-  const handleSubmit = async () => {
+  const handleFinalSubmit = async () => {
     if (!test || submittedRef.current) return;
     submittedRef.current = true;
     setSubmitted(true);
@@ -85,11 +92,12 @@ const TakeTestPage = () => {
     navigate("/result");
   };
 
-  handleSubmitRef.current = handleSubmit;
+  handleSubmitRef.current = handleFinalSubmit;
 
   useEffect(() => {
     if (timeLeft < 0 || !test || submitted) return;
     if (timeLeft === 0) {
+      // Auto-submit when time runs out
       handleSubmitRef.current();
       return;
     }
@@ -101,99 +109,220 @@ const TakeTestPage = () => {
   if (isLoading) return <div className="min-h-screen flex items-center justify-center text-foreground">Loading test...</div>;
   if (!test) return <div className="min-h-screen flex items-center justify-center text-foreground">Test not found</div>;
 
-  const question = test.questions[currentQ];
-  if (!question) return <div>Question not found</div>;
-
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
   const isLowTime = timeLeft < 60;
 
   const optionLabels = ["A", "B", "C", "D"];
 
+  // --- Review View Logic ---
+  const ITEMS_PER_PAGE = 10;
+  
+  const renderReviewPage = () => {
+    const totalQuestions = test.questions.length;
+    const totalPages = Math.ceil(totalQuestions / ITEMS_PER_PAGE);
+    const startIdx = reviewPage * ITEMS_PER_PAGE;
+    const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalQuestions);
+    const currentQuestions = test.questions.slice(startIdx, endIdx);
+
+    return (
+      <div className="flex-1 container mx-auto px-4 py-8 max-w-4xl animate-fade-in">
+        <h2 className="text-2xl font-display font-bold mb-6">Review Answers</h2>
+        
+        <div className="space-y-4 mb-8">
+            {currentQuestions.map((q, idx) => {
+              const globalIndex = startIdx + idx;
+              const selectedAnswerIndex = answers[globalIndex];
+              const selectedLabel = selectedAnswerIndex !== null ? optionLabels[selectedAnswerIndex] : "-";
+              
+              return (
+                <div key={q.id} className="bg-card rounded-xl p-4 border border-border flex items-start sm:items-center gap-4 shadow-sm">
+                   <div className="bg-primary/10 text-primary font-bold w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
+                      {globalIndex + 1}
+                   </div>
+                   <div className="flex-1">
+                      <p className="font-medium text-foreground mb-1">{q.text}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Selected: <span className="font-bold text-foreground">{selectedLabel}</span>
+                        {selectedAnswerIndex !== null && ` - ${q.options[selectedAnswerIndex]}`}
+                      </p>
+                   </div>
+                   <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                          setCurrentQ(globalIndex);
+                          setIsReviewing(false);
+                      }}
+                   >
+                     Edit
+                   </Button>
+                </div>
+              );
+            })}
+        </div>
+
+        {/* Review Pagination */}
+        {totalPages > 1 && (
+            <div className="flex justify-center gap-2 mb-8">
+                <Button 
+                  variant="outline" 
+                  disabled={reviewPage === 0}
+                  onClick={() => setReviewPage(p => p - 1)}
+                >
+                    <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="flex items-center px-4 font-mono text-sm border rounded-md">
+                    Page {reviewPage + 1} of {totalPages}
+                </span>
+                <Button 
+                  variant="outline" 
+                  disabled={reviewPage === totalPages - 1}
+                  onClick={() => setReviewPage(p => p + 1)}
+                >
+                    <ChevronRight className="w-4 h-4" />
+                </Button>
+            </div>
+        )}
+
+        <div className="flex items-center justify-between border-t pt-6">
+            <Button
+                variant="outline" 
+                onClick={() => setIsReviewing(false)}
+                className="gap-2"
+            >
+                <ChevronLeft className="w-4 h-4" /> Back to Test
+            </Button>
+            
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold px-8 shadow-lg shadow-green-900/20"
+              onClick={handleFinalSubmit}
+            >
+              <CheckCircle className="h-4 w-4 mr-2" /> Confirm & Submit
+            </Button>
+        </div>
+      </div>
+    );
+  };
+  
+  // --- Standard Question Logic ---
+  const question = test.questions[currentQ];
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top bar */}
-      <div className="gradient-hero text-primary-foreground py-4 px-4">
+      <div className="gradient-hero text-primary-foreground py-4 px-4 shadow-md sticky top-0 z-10">
         <div className="container mx-auto flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-lg font-display font-bold">{test.title}</h1>
             <p className="text-sm opacity-80">{studentName}</p>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm bg-primary-foreground/10 rounded-lg px-3 py-1">
-              {currentQ + 1} / {test.questions.length}
-            </span>
-            <span className={`flex items-center gap-1 text-sm font-mono font-bold px-3 py-1 rounded-lg ${isLowTime ? "bg-destructive/80 animate-pulse" : "bg-primary-foreground/10"}`}>
-              <Clock className="h-4 w-4" />
-              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Question */}
-      <div className="flex-1 container mx-auto px-4 py-8 max-w-3xl">
-        <div className="bg-card rounded-2xl shadow-card p-6 md:p-8 animate-fade-in" key={currentQ}>
-          <h2 className="text-xl font-display font-semibold text-foreground mb-6">
-            {question.text}
-          </h2>
-
-          <div className="space-y-3">
-            {question.options.map((option, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  const newAnswers = [...answers];
-                  newAnswers[currentQ] = idx;
-                  setAnswers(newAnswers);
-                }}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 ${
-                  answers[currentQ] === idx
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40 hover:bg-secondary"
-                }`}
-              >
-                <span className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
-                  answers[currentQ] === idx
-                    ? "gradient-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground"
-                }`}>
-                  {optionLabels[idx]}
+            {!isReviewing && (
+                <span className="text-sm bg-primary-foreground/10 rounded-lg px-3 py-1 backdrop-blur-sm">
+                Question {currentQ + 1} / {test.questions.length}
                 </span>
-                <span className="text-foreground">{option}</span>
-              </button>
-            ))}
+            )}
+            
+            <div className={`flex items-center gap-2 px-3 py-1 rounded-lg backdrop-blur-sm border border-white/10 ${isLowTime ? "bg-red-500/80 animate-pulse border-red-400" : "bg-primary-foreground/10"}`}>
+               {showTimer ? (
+                   <>
+                        <Clock className="h-4 w-4" />
+                        <span className="text-sm font-mono font-bold w-[4ch]">
+                            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+                        </span>
+                   </>
+               ) : (
+                   <span className="text-sm font-medium">Timer Hidden</span>
+               )}
+               
+               <button 
+                onClick={() => setShowTimer(!showTimer)}
+                className="ml-2 hover:bg-white/20 p-1 rounded-full transition-colors"
+                title={showTimer ? "Hide Timer" : "Show Timer"}
+               >
+                   {showTimer ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+               </button>
+            </div>
           </div>
         </div>
-
-        {/* Navigation */}
-        <div className="flex items-center justify-between mt-6">
-          <Button
-            variant="outline"
-            className="rounded-xl"
-            disabled={currentQ === 0}
-            onClick={() => setCurrentQ((c) => c - 1)}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-          </Button>
-
-          {currentQ < test.questions.length - 1 ? (
-            <Button
-              className="gradient-primary text-primary-foreground rounded-xl hover:opacity-90 transition-opacity"
-              onClick={() => setCurrentQ((c) => c + 1)}
-            >
-              Next <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          ) : (
-            <Button
-              className="bg-accent text-accent-foreground rounded-xl hover:opacity-90 transition-opacity font-semibold"
-              onClick={handleSubmit}
-            >
-              <AlertCircle className="h-4 w-4 mr-2" /> Submit Test
-            </Button>
-          )}
-        </div>
       </div>
+      
+      {isReviewing ? renderReviewPage() : (
+        /* Question View */
+        <div className="flex-1 container mx-auto px-4 py-8 max-w-3xl flex flex-col justify-center">
+            {question && (
+                <div className="bg-card rounded-2xl shadow-card p-6 md:p-8 animate-fade-in border border-border/50">
+                    <h2 className="text-xl md:text-2xl font-display font-semibold text-foreground mb-8 leading-relaxed">
+                        {question.text}
+                    </h2>
+
+                    <div className="space-y-3">
+                        {question.options.map((option, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => {
+                            const newAnswers = [...answers];
+                            newAnswers[currentQ] = idx;
+                            setAnswers(newAnswers);
+                            }}
+                            className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-4 group ${
+                            answers[currentQ] === idx
+                                ? "border-primary bg-primary/5 shadow-sm"
+                                : "border-border hover:border-primary/40 hover:bg-secondary/50"
+                            }`}
+                        >
+                            <span className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
+                            answers[currentQ] === idx
+                                ? "gradient-primary text-primary-foreground shadow-md"
+                                : "bg-secondary text-muted-foreground group-hover:bg-background group-hover:text-foreground"
+                            }`}>
+                            {optionLabels[idx]}
+                            </span>
+                            <span className={`text-lg ${answers[currentQ] === idx ? "text-primary font-medium" : "text-foreground"}`}>
+                                {option}
+                            </span>
+                        </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between mt-8">
+            <Button
+                variant="outline"
+                size="lg"
+                className="rounded-xl px-6"
+                disabled={currentQ === 0}
+                onClick={() => setCurrentQ((c) => c - 1)}
+            >
+                <ChevronLeft className="h-5 w-5 mr-1" /> Previous
+            </Button>
+
+            {currentQ < test.questions.length - 1 ? (
+                <Button
+                size="lg"
+                className="gradient-primary text-primary-foreground rounded-xl px-6 hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
+                onClick={() => setCurrentQ((c) => c + 1)}
+                >
+                Next <ChevronRight className="h-5 w-5 ml-1" />
+                </Button>
+            ) : (
+                <Button
+                size="lg"
+                className="bg-accent text-accent-foreground rounded-xl px-6 hover:opacity-90 transition-opacity font-semibold shadow-lg shadow-accent/20"
+                onClick={() => {
+                    setIsReviewing(true);
+                    setReviewPage(0);
+                }}
+                >
+                <AlertCircle className="h-5 w-5 mr-2" /> Review Answers
+                </Button>
+            )}
+            </div>
+        </div>
+      )}
     </div>
   );
 };
