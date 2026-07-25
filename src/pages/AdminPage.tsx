@@ -18,6 +18,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -115,6 +116,7 @@ const AdminPage = () => {
   };
 
   const removeSubject = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this subject? All related tests will also be deleted. This action cannot be undone.")) return;
     await deleteSubject(id);
     refresh();
   };
@@ -162,9 +164,11 @@ const AdminPage = () => {
   };
 
   const removeQuestion = (idx: number) => {
+    if (!window.confirm("Are you sure you want to remove this question?")) return;
     setTestQuestions(testQuestions.filter((_, i) => i !== idx));
   };
 
+  const [isSavingTest, setIsSavingTest] = useState(false);
   const saveTestForm = async () => {
     if (!testTitle.trim() || !testSubjectId) return;
     const testData = {
@@ -173,16 +177,29 @@ const AdminPage = () => {
       duration: parseInt(testDuration) || 10,
       questions: testQuestions,
     };
-    if (editTestId) {
-      await updateTest(editTestId, testData);
-    } else {
-      await addTest(testData);
+    const saveOperation = async () => {
+      if (editTestId) {
+        await updateTest(editTestId, testData);
+      } else {
+        await addTest(testData);
+      }
+    };
+    setIsSavingTest(true);
+    try {
+      await toast.promise(saveOperation(), {
+        loading: "Saving test...",
+        success: "Test saved successfully!",
+        error: "Failed to save test",
+      });
+      setShowTestForm(false);
+      refresh();
+    } finally {
+      setIsSavingTest(false);
     }
-    setShowTestForm(false);
-    refresh();
   };
 
   const removeTest = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this test? All questions and results related to it will be lost. This action cannot be undone.")) return;
     await deleteTest(id);
     refresh();
   };
@@ -402,10 +419,21 @@ const AdminPage = () => {
                 </div>
 
                 <div className="flex gap-2 mt-6">
-                  <Button className="gradient-primary text-primary-foreground rounded-xl hover:opacity-90" onClick={saveTestForm}>
-                    <Save className="h-4 w-4 mr-2" /> Save Test
+                  <Button
+                    className="gradient-primary text-primary-foreground rounded-xl hover:opacity-90"
+                    onClick={saveTestForm}
+                    disabled={isSavingTest}
+                  >
+                    {isSavingTest ? (
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      </svg>
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {isSavingTest ? "Saving..." : "Save Test"}
                   </Button>
-                  <Button variant="outline" className="rounded-xl" onClick={() => setShowTestForm(false)}>
+                  <Button variant="outline" className="rounded-xl" onClick={() => setShowTestForm(false)} disabled={isSavingTest}>
                     <X className="h-4 w-4 mr-2" /> Cancel
                   </Button>
                 </div>

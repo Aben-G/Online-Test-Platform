@@ -1,11 +1,12 @@
 import { cn } from "@/lib/utils";
+import logo from "@/assets/logo.webp";
 
 type LogoSize = "sm" | "md" | "lg";
 
 const sizeClasses: Record<LogoSize, string> = {
-  sm: "h-8 w-8 text-sm",
-  md: "h-10 w-10 text-base",
-  lg: "h-12 w-12 text-lg",
+  sm: "h-8",
+  md: "h-10",
+  lg: "h-14",
 };
 
 interface LogoProps {
@@ -15,16 +16,15 @@ interface LogoProps {
 
 const Logo = ({ size = "md", className }: LogoProps) => {
   return (
-    <div
-      aria-label="OT logo"
+    <img
+      src={logo}
+      alt="Tshaye Tsidq Leadership and mission College Logo"
       className={cn(
-        "gradient-primary text-primary-foreground inline-flex items-center justify-center rounded-xl font-display font-bold tracking-tight select-none",
+        "object-contain select-none",
         sizeClasses[size],
         className,
       )}
-    >
-      OT
-    </div>
+    />
   );
 };
 

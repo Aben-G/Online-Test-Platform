@@ -126,21 +126,6 @@ export async function getSubjects(): Promise<Subject[]> {
     return [];
   }
   
-  if (data.length === 0) {
-    // Seed default subjects if empty
-    console.log("Seeding default subjects...");
-    const { data: inserted, error: insertError } = await supabase
-      .from("subjects")
-      .insert(DEFAULT_SUBJECTS)
-      .select();
-      
-    if (insertError) {
-      console.error("Error seeding subjects:", insertError);
-      return [];
-    }
-    return inserted as Subject[];
-  }
-  
   return data as Subject[];
 }
 

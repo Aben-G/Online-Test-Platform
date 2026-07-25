@@ -27,7 +27,7 @@ const ResultPage = () => {
           <h1 className="text-2xl font-display font-bold text-foreground mb-1">
             {passed ? "Great Job!" : "Keep Trying!"}
           </h1>
-          <p className="text-muted-foreground mb-6">{result.studentName} — {result.testTitle}</p>
+          <p className="text-muted-foreground mb-6 font-medium">{result.studentName} • {result.testTitle}</p>
 
           <div className="text-6xl font-display font-bold text-primary mb-6">
             {result.score}%
