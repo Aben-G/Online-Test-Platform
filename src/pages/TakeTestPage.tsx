@@ -385,14 +385,15 @@ const TakeTestPage = () => {
         /* Question View */
         <div className="flex-1 container mx-auto px-3 sm:px-4 py-4 md:py-8 max-w-2xl md:max-w-3xl flex flex-col justify-center">
           {question && (
-            <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6 md:p-8 animate-fade-in border border-border/50">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-display font-semibold text-foreground mb-5 sm:mb-8 leading-relaxed">
+            <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6 md:p-8 animate-fade-in border border-border/60">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-display font-bold text-foreground dark:text-white mb-5 sm:mb-8 leading-relaxed">
                 {question.text}
               </h2>
 
               <div className="space-y-3">
                 {question.options.map((option, idx) => {
                   if (!option || !option.trim()) return null;
+                  const isSelected = answers[currentQ] === idx;
                   return (
                     <button
                       key={idx}
@@ -402,19 +403,23 @@ const TakeTestPage = () => {
                         setAnswers(newAnswers);
                       }}
                       className={`w-full text-left p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 sm:gap-4 group ${
-                        answers[currentQ] === idx
-                          ? "border-primary bg-primary/5 shadow-sm"
+                        isSelected
+                          ? "border-primary bg-primary/10 dark:bg-primary/20 shadow-sm"
                           : "border-border hover:border-primary/40 hover:bg-secondary/50"
                       }`}
                     >
                       <span className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold shrink-0 transition-colors ${
-                        answers[currentQ] === idx
+                        isSelected
                           ? "gradient-primary text-primary-foreground shadow-md"
-                          : "bg-secondary text-muted-foreground group-hover:bg-background group-hover:text-foreground"
+                          : "bg-secondary text-muted-foreground dark:text-slate-200 group-hover:bg-background group-hover:text-foreground"
                       }`}>
                         {optionLabels[idx]}
                       </span>
-                      <span className={`text-sm sm:text-base md:text-lg ${answers[currentQ] === idx ? "text-primary font-medium" : "text-foreground"}`}>
+                      <span className={`text-sm sm:text-base md:text-lg flex-1 ${
+                        isSelected 
+                          ? "text-primary dark:text-amber-400 font-bold" 
+                          : "text-foreground dark:text-white font-medium"
+                      }`}>
                         {option}
                       </span>
                     </button>
@@ -429,7 +434,7 @@ const TakeTestPage = () => {
             <Button
               variant="outline"
               size="lg"
-              className="rounded-xl px-4 sm:px-6"
+              className="rounded-xl px-5 sm:px-7 font-bold border-border/80 hover:bg-secondary transition-all"
               disabled={currentQ === 0}
               onClick={() => setCurrentQ((c) => c - 1)}
             >
@@ -439,7 +444,7 @@ const TakeTestPage = () => {
             {currentQ < test.questions.length - 1 ? (
               <Button
                 size="lg"
-                className="gradient-primary text-primary-foreground rounded-xl px-4 sm:px-6 hover:opacity-90 transition-opacity"
+                className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl px-6 sm:px-8 shadow-md transition-all active:scale-95 border-0"
                 onClick={() => setCurrentQ((c) => c + 1)}
               >
                 Next <ChevronRight className="h-5 w-5 ml-1" />
@@ -447,7 +452,7 @@ const TakeTestPage = () => {
             ) : (
               <Button
                 size="lg"
-                className="bg-accent text-accent-foreground rounded-xl px-4 sm:px-6 hover:opacity-90 transition-opacity font-semibold"
+                className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl px-6 sm:px-8 shadow-md transition-all active:scale-95 border-0"
                 onClick={() => {
                   setIsReviewing(true);
                   setReviewPage(0);

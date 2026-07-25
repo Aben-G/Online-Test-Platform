@@ -13,6 +13,8 @@ import NotFound from "./pages/NotFound";
 import { LoginPage } from "./pages/LoginPage";
 import { useAuth } from "@/lib/auth";
 
+import { useEffect } from "react";
+
 // Protected wrapper for admin route
 const AdminRoute = () => {
   const { isAuthenticated } = useAuth();
@@ -22,25 +24,36 @@ const AdminRoute = () => {
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/subjects" element={<SubjectsPage />} />
-          <Route path="/subjects/:subjectId/tests" element={<TestsListPage />} />
-          <Route path="/test/:testId" element={<TakeTestPage />} />
-          <Route path="/result" element={<ResultPage />} />
-          <Route path="/admin" element={<AdminRoute />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("appTheme") || "dark";
+    if (savedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/subjects" element={<SubjectsPage />} />
+            <Route path="/subjects/:subjectId/tests" element={<TestsListPage />} />
+            <Route path="/test/:testId" element={<TakeTestPage />} />
+            <Route path="/result" element={<ResultPage />} />
+            <Route path="/admin" element={<AdminRoute />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
